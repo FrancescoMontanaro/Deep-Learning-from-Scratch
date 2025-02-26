@@ -1,5 +1,6 @@
 import torch
 
+
 def get_device() -> torch.device:
     """
     Function that returns the device to use for the computations.
