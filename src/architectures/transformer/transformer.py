@@ -1,78 +1,17 @@
 import torch
 import torch.nn as nn
-from typing import Optional
 from torch.nn import functional as F
+from typing import Optional, Union, Generator
 
-from .utils import device
 from .data_loader import DataLoader
-from .feed_forward import FeedForward
-from .attention_mechanism import MultiHeadAttention
-
-
-class TransformerBlock(nn.Module):
-    
-    ### Magic methods ###
-    
-    def __init__(self, n_embed: int, n_heads: int, block_size: int, dropout: float = 0.1) -> None:
-        """
-        Initialize the transformer block.
-        
-        Parameters:
-        - n_embed (int): The size of the embeddings.
-        - n_heads (int): The number of attention heads.
-        - block_size (int): The size of the block.
-        - dropout (float): The dropout rate.
-        """
-        
-        # Initialize the superclass
-        super().__init__()
-        
-        # Compute the size of the attention heads by dividing the embedding size by the number of heads
-        head_size = n_embed // n_heads
-        
-        # Create the multi-head self-attention mechanism and the feed-forward layers
-        self.self_attention_heads = MultiHeadAttention(  # Create the multi-head self-attention mechanism
-            n_heads = n_heads, 
-            head_size = head_size, 
-            n_embed = n_embed, 
-            block_size = block_size,
-            dropout = dropout
-        )
-        self.feed_forward = FeedForward(  # Create the feed-forward layers
-            n_embed = n_embed,
-            dropout = dropout
-        )
-        self.layer_norm_1 = nn.LayerNorm(n_embed) # Create the normalization layer of the attention mechanism
-        self.layer_norm_2 = nn.LayerNorm(n_embed) # Create the normalization layer of the feed-forward layers
-      
-    
-    ### Public methods ###  
-        
-    def forward(self, embeddings: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the transformer block.
-        
-        Parameters:
-        - embeddings (torch.Tensor): The input embeddings.
-        
-        Returns:
-        - torch.Tensor: The output embeddings.
-        """
-        
-        # Apply the self-attention mechanism with skip connections
-        embeddings = embeddings + self.self_attention_heads(self.layer_norm_1(embeddings))
-        
-        # Apply the feed-forward layers with skip connections
-        embeddings = embeddings + self.feed_forward(self.layer_norm_2(embeddings))
-        
-        return embeddings
+from .decoder_block import DecoderBlock
 
 
 class Transformer(nn.Module):
     
     ### Magic methods ###
     
-    def __init__(self, vocab_size: int, n_embed: int, n_heads: int, block_size: int, n_transformer_blocks: int = 4, dropout: float = 0.1) -> None:
+    def __init__(self, vocab_size: int, n_embed: int, n_heads: int, block_size: int, n_transformer_blocks: int = 4, dropout: float = 0.1, device: Optional[torch.device] = None) -> None:
         """
         Initialize the Transformer.
         
@@ -83,6 +22,7 @@ class Transformer(nn.Module):
         - block_size (int): The size of the block.
         - n_transformer_blocks (int): The number of transformer blocks.
         - dropout (float): The dropout rate.
+        - device (torch.device): The device to use for the computations.
         """
         
         # Initialize the superclass
@@ -96,7 +36,7 @@ class Transformer(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed) # Create the token embedding table
         self.positional_embedding = nn.Embedding(block_size, n_embed) # Create the positional embedding table
         self.transformer_blocks = nn.Sequential(*[  # Create the transformer blocks
-            TransformerBlock(
+            DecoderBlock(
                 n_embed = n_embed, 
                 n_heads = n_heads, 
                 block_size = block_size,
@@ -107,11 +47,13 @@ class Transformer(nn.Module):
         
         ###############
         
-        # Move the model to the appropriate device
-        self.to(device)
+        # Create the loss function
+        self.loss_fn = nn.CrossEntropyLoss() 
         
-        # Print the device
-        print(f'Model moved to device: {device}')
+        ## Move the model to the appropriate device
+        if device is not None:
+            # Move the model to the appropriate device
+            self.to(device)
         
     
     ### Public methods ###
@@ -159,54 +101,19 @@ class Transformer(nn.Module):
             targets = targets.view(B * T)
             
             # Compute the loss
-            loss = F.cross_entropy(logits, targets)
+            loss = self.loss_fn(logits, targets)
         
         # Return the logits
         return logits, loss
-    
-    
-    def generate(self, input_tokens: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
-        """
-        Method to generate new tokens (inference).
         
-        Parameters:
-        - input_tokens (torch.Tensor): The input tokens.
-        - max_new_tokens (int): The maximum number of new tokens to generate.
-        
-        Returns:
-        - torch.Tensor: The generated tokens.
-        """
-        
-        # Iterate over the maximum number of new tokens
-        for _ in range(max_new_tokens):
-            # Crop the input tokens to the block size
-            cropped_input_tokens = input_tokens[:, -self.block_size:] # (B, T)
-            
-            # Get the predictions
-            logits, loss = self(cropped_input_tokens)
-            
-            # Focus only on the last time step
-            logits = logits[:, -1, :]
-            
-            # Apply the softmax function to get the probabilities
-            probs = F.softmax(logits, dim=-1)
-            
-            # Sample the next token from the distribution
-            input_tokens_next = torch.multinomial(probs, num_samples=1)
-            
-            # Concatenate the new token to the input
-            input_tokens = torch.cat([input_tokens, input_tokens_next], dim=-1)
-            
-        return input_tokens
     
-    
-    def train_model(self, data_loader: DataLoader, epochs: int, lr: float, batch_size: int, eval_iters: int = 200) -> None:
+    def fit(self, data_loader: DataLoader, steps: int, lr: float, batch_size: int, eval_iters: int = 200) -> None:
         """
         Method to train the model.
         
         Parameters:
         - data_loader (DataLoader): The data loader object to get the data from.
-        - epochs (int): The number of epochs.
+        - steps (int): The number of steps.
         - lr (float): The learning rate.
         - batch_size (int): The batch size.
         - eval_iters (int): The number of iterations to evaluate the loss on the training and validation sets.
@@ -215,15 +122,15 @@ class Transformer(nn.Module):
         # Define an optimizer
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr)
         
-        # Iterate over the epochs
-        for epoch in range(epochs):
+        # Iterate over the steps
+        for step in range(steps):
             # Evaluate the loss on the training and validation sets every once in a while
-            if epoch % eval_iters == 0:
+            if step % eval_iters == 0:
                 # Estimate the losses
                 losses = self.estimate_loss(data_loader, eval_iters, batch_size)
                 
                 # Print the losses
-                print(f'Epoch {epoch+1}/{epochs} - Train Loss: {losses["train"]:.4f}, Val Loss: {losses["val"]:.4f}')
+                print(f'Epoch {step+1}/{steps} - Train Loss: {losses["train"]:.4f}, Val Loss: {losses["val"]:.4f}')
                 
             # Get the batch
             x, y = data_loader.get_batch(split='train', batch_size=batch_size, block_size=self.block_size)
@@ -284,3 +191,86 @@ class Transformer(nn.Module):
         self.train()
         
         return out
+    
+    
+    @torch.no_grad()
+    def generate(self, input_tokens: torch.Tensor, max_new_tokens: int, stream: bool = False) -> Union[torch.Tensor, Generator[torch.Tensor, None, None]]:
+        """
+        Method to generate new tokens (inference).
+        
+        Parameters:
+        - input_tokens (Tensor): The input tokens.
+        - max_new_tokens (int): The maximum number of new tokens to generate.
+        - stream (bool): Whether to generate the tokens in a streaming fashion.
+        
+        Returns:
+        - Union[Tensor, Generator[Tensor, None, None]]: The generated tokens or a generator to stream the tokens.
+        """
+        
+        # Set the model to evaluation mode
+        self.eval()
+            
+        # Stream the generated tokens using a generator
+        if stream:
+            # Define the generator to stream the tokens
+            def stream_tokens() -> Generator[torch.Tensor, None, None]:
+                """
+                Generator to stream the generated tokens.
+                
+                Yields:
+                - Tensor: The next token generated.
+                """
+                
+                # Initialize the local tokens
+                local_tokens = input_tokens
+                
+                # Iterate over the maximum number of new tokens
+                for _ in range(max_new_tokens):
+                    # Crop the input tokens to the sequence length if larger
+                    cropped_input_tokens = local_tokens[:, -self.block_size:]
+                    
+                    # Get the predictions
+                    logits, _ = self(cropped_input_tokens)
+                    
+                    # Focus only on the last time step
+                    logits = logits[:, -1, :]
+                    
+                    # Apply the softmax function to get the probabilities
+                    probs = F.softmax(logits, dim=-1)
+                    
+                    # Sample the next token from the distribution
+                    next_token = torch.multinomial(probs, num_samples=1)
+                    
+                    # Yield the next token
+                    yield next_token
+
+                    # Concatenate the new token to the input
+                    local_tokens = torch.cat([local_tokens, next_token], dim=-1)
+            
+            # Return the generator to stream the tokens         
+            return stream_tokens()
+        
+        # Generate all the tokens at once
+        else:
+            # Iterate over the maximum number of new tokens
+            for _ in range(max_new_tokens):
+                # Crop the input tokens to the sequence length if larger
+                cropped_input_tokens = input_tokens[:, -self.block_size:]
+                
+                # Get the predictions
+                logits, _ = self(cropped_input_tokens)
+                
+                # Focus only on the last time step
+                logits = logits[:, -1, :]
+                
+                # Apply the softmax function to get the probabilities
+                probs = F.softmax(logits, dim=-1)
+                
+                # Sample the next token from the distribution
+                next_token = torch.multinomial(probs, num_samples=1)
+
+                # Concatenate the new token to the input
+                input_tokens = torch.cat([input_tokens, next_token], dim=-1)
+                
+            # Return the generated tokens
+            return input_tokens

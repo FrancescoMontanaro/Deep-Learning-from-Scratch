@@ -2,7 +2,7 @@ import os
 import torch
 from typing import Literal
 
-from .utils import device
+from ...utils import device
 from .tokenizer import Tokenizer
 
 

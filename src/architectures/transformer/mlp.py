@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class FeedForward(nn.Module):
+class MLP(nn.Module):
     
     ### Magic methods ###
     
@@ -19,7 +19,7 @@ class FeedForward(nn.Module):
         super().__init__()
         
         # Define the feed-forward layers
-        self.feed_forward = nn.Sequential(
+        self.mlp = nn.Sequential(
             nn.Linear(n_embed, 4 * n_embed),
             nn.ReLU(),
             nn.Linear(4 * n_embed, n_embed), # Project the embeddings back to the original size
@@ -41,4 +41,4 @@ class FeedForward(nn.Module):
         """
         
         # Apply the feed-forward layers
-        return self.feed_forward(embeddings)
+        return self.mlp(embeddings)

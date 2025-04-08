@@ -4,7 +4,7 @@ import torch.nn as nn
 from typing import Optional
 from torch.nn import functional as F
 
-from .utils import *
+from ...utils import *
 from .block import Block
 from .config import GPTConfig
 from .data_loader import DataLoader
@@ -45,7 +45,7 @@ class GPT2(nn.Module):
         self.transformer.tokens_embedding.weight = self.output.weight # type: ignore
         
         # Initialize the parameters of the model
-        self.apply(self._inti_params)
+        self.apply(self._init_params)
         
         
     ### Public methods ###  
@@ -300,7 +300,7 @@ class GPT2(nn.Module):
 
     ### Protected methods ###
     
-    def _inti_params(self, module: nn.Module) -> None:
+    def _init_params(self, module: nn.Module) -> None:
         """
         Method to initialize the parameters of the model.
         

@@ -166,7 +166,7 @@ class Tokenizer:
         return bytes_tokens.decode("utf-8", errors="replace")
     
     
-    def save_state(self, file_path: str) -> None:
+    def save(self, file_path: str) -> None:
         """
         Function to save the parameters of the tokenizer into a json file
         
@@ -200,7 +200,7 @@ class Tokenizer:
             json.dump({"vocab": serializable_vocab, "merges": serializable_merges}, f, indent=4)
             
             
-    def load_state(self, file_path: str) -> None:
+    def load(self, file_path: str) -> None:
         """
         Function to load the parameters of the tokenizer from a json file
         
@@ -247,6 +247,22 @@ class Tokenizer:
         self.merges = merges
         self.vocab_size = len(vocab.keys())
         
+    
+    def get_vocab_size(self) -> int:
+        """
+        Function to get the size of the vocabulary
+        
+        Returns:
+        - int: The size of the vocabulary
+        """
+        
+        # Check if the vocabulary size is set
+        if self.vocab_size is None:
+            raise ValueError("The vocabulary size is not set. Train the tokenizer before getting the vocabulary size or load the parameters from a file")
+        
+        # Return the vocabulary size
+        return self.vocab_size
+    
     
     ### Protected methods ###
     
