@@ -182,13 +182,13 @@ class Sequential(Architecture, nn.Sequential):
             # Display progress with metrics
             print(
                 f"\rEpoch {self.epoch + 1}/{epochs} --> "
-                f"loss: {self.history['loss'].numpy()[-1]:.4f} "
+                f"loss: {self.history['loss'][-1].item():.4f} "
                 + " ".join(
-                    [f"- {metric.__name__.replace('_', ' ')}: {self.history[metric.__name__].numpy()[-1]:.4f}" for metric in metrics]
+                    [f"- {metric.__name__.replace('_', ' ')}: {self.history[metric.__name__][-1].item():.4f}" for metric in metrics]
                 )
-                + f" | Validation loss: {self.history['val_loss'].numpy()[-1]:.4f} "
+                + f" | Validation loss: {self.history['val_loss'][-1].item():.4f} "
                 + " ".join(
-                    [f"- Validation {metric.__name__.replace('_', ' ')}: {self.history[f'val_{metric.__name__}'].numpy()[-1]:.4f}" for metric in metrics]
+                    [f"- Validation {metric.__name__.replace('_', ' ')}: {self.history[f'val_{metric.__name__}'][-1].item():.4f}" for metric in metrics]
                 ).ljust(50)
             )
             

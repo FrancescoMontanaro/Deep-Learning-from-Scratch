@@ -2,6 +2,7 @@ import torch
 from typing import Union, Tuple
 
 
+@torch.no_grad()
 def shuffle_data(data: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     """
     Method to shuffle the dataset
