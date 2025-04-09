@@ -6,7 +6,7 @@ from .mlp import MultiLayerPerceptron
 from .attention_mechanism import MultiHeadAttention
 
 
-class Block(nn.Module):
+class DecoderBlock(nn.Module):
     
     ### Magic Methods ###
     

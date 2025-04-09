@@ -5,9 +5,9 @@ from typing import Optional
 from torch.nn import functional as F
 
 from ...utils import *
-from .block import Block
 from .config import GPTConfig
 from .data_loader import DataLoader
+from .decoder_block import DecoderBlock
 
 
 class GPT2(nn.Module):
@@ -32,7 +32,7 @@ class GPT2(nn.Module):
         self.transformer = nn.ModuleDict(dict(
             tokens_embedding = nn.Embedding(config.vocab_size, config.n_embed),
             positional_embedding = nn.Embedding(config.context_size, config.n_embed),
-            hidden = nn.ModuleList([Block(config) for _ in range(config.n_blocks)]),
+            hidden = nn.ModuleList([DecoderBlock(config) for _ in range(config.n_blocks)]),
             normalization = nn.LayerNorm(config.n_embed)
         ))
         
@@ -171,9 +171,6 @@ class GPT2(nn.Module):
                 
                     # Compute the gradients
                     loss.backward()
-                    
-                    # Display the step progress
-                    print(f"\rEpoch {epoch + 1}/{epochs} | Step {step + 1}/{n_steps} | Step completion percentage {(((micro_step + 1) / n_micro_steps)*100):.2f}%", end="")
                 
                 # Clip the gradients to avoid exploding gradients
                 # The gradient norm is clipped to 1.0
@@ -192,7 +189,7 @@ class GPT2(nn.Module):
                 step_duration += dt # Accumulate the step duration
                 
                 # Display the epoch progress
-                print(f"\rEpoch: {epoch + 1}/{epochs} | Completion percentage: {(((step + 1)/n_steps)*100):.2f}% | Step duration {dt:.2f} ms/step --> loss: {loss_accum:.4f}")
+                print(f"\rEpoch: {epoch + 1}/{epochs} | {(((step + 1)/n_steps)*100):.2f}% | {dt:.2f} ms/step --> loss: {loss_accum:.4f}", end="")
             
             # Compute the average epoch loss and step duration  
             avg_epoch_loss = epoch_loss / n_steps
@@ -208,7 +205,7 @@ class GPT2(nn.Module):
             epoch_duration = (epoch_end - epoch_start) * 1000
               
             # Display the epoch loss  
-            print(f"Epoch {epoch + 1}/{epochs} | Average step duration {avg_step_duration:.2f} ms/step | Epoch duration {epoch_duration:.2f} ms/epoch --> loss: {avg_epoch_loss:.4f} - val_loss: {val_loss:.4f}")
+            print(f"\rEpoch {epoch + 1}/{epochs} | Avg step duration: {avg_step_duration:.2f} ms/step | Epoch duration: {epoch_duration:.2f} ms/epoch --> loss: {avg_epoch_loss:.4f} - val_loss: {val_loss:.4f}")
         
     
     @torch.no_grad()

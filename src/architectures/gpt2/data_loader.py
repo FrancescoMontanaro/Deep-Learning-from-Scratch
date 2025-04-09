@@ -1,8 +1,7 @@
 import os
 import torch
-from typing import Literal
+from typing import Literal, Optional
 
-from ...utils import device
 from .tokenizer import Tokenizer
 
 
@@ -10,7 +9,7 @@ class DataLoader:
     
     ### Magic methods ###
     
-    def __init__(self, txt_file: str, tokenizer: Tokenizer, train_val_split: float = 0.1) -> None:
+    def __init__(self, txt_file: str, tokenizer: Tokenizer, train_val_split: float = 0.1, device: Optional[torch.device] = None) -> None:
         """
         Initialize the data loader.
         
@@ -18,6 +17,7 @@ class DataLoader:
         - txt_file (str): The path to the text file.
         - tokenizer (Tokenizer): The tokenizer to use.
         - train_val_split (float): The proportion of the data to use for training. Default is 0.1.
+        - device (torch.device): The device to use for the tensors. Default is None.
         
         Raise:
         - FileNotFoundError: If the text file does not exist.
@@ -43,6 +43,9 @@ class DataLoader:
         # Split the tokens into training and validation sets
         self.train_tokens = tokens[:-n_training_tokens]
         self.val_tokens = tokens[-n_training_tokens:]
+        
+        # Store the device
+        self.device = device
     
     
     ### Public methods ###
@@ -71,8 +74,10 @@ class DataLoader:
         x = torch.stack([tokens[i:i+sequence_length] for i in ix]) # (batch_size, block_size)
         y = torch.stack([tokens[i+1:i+sequence_length+1] for i in ix]) # (batch_size, block_size)
         
-        # Move the data to the appropriate device
-        x, y = x.to(device), y.to(device)
+        # Check if the device is set
+        if self.device is not None:
+            # Move the data to the appropriate device
+            x, y = x.to(self.device), y.to(self.device)
         
         # Return the input and target sequences
         return x, y
