@@ -155,7 +155,7 @@ class GPT2(nn.Module):
                 loss_accum = 0.0
                 
                 # Iterate over the micro-steps
-                for micro_step in range(n_micro_steps):
+                for _ in range(n_micro_steps):
                     # Get the current batch
                     x, y = data_loader.get_batch('train', micro_batch_size, sequence_length)
             
