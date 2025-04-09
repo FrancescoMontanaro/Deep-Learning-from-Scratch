@@ -2,3 +2,5 @@ regex
 tiktoken
 torch
 tensorflow
+matplotlib
+scikit-learn

@@ -1,1 +1,1 @@
-from .utils import device
+from .model_utils import device
